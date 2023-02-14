@@ -7,12 +7,16 @@ on:
     - '**.md'
     - LICENSE.txt
     - NOTICE.txt
+    - .mailmap
+    - CITATION.cff
   pull_request:
     branches: [ master ]
     paths-ignore:
     - '**.md'
     - LICENSE.txt
     - NOTICE.txt
+    - .mailmap
+    - CITATION.cff
 
 jobs:
   build:
@@ -21,7 +25,7 @@ jobs:
     strategy:
       matrix:
         include:
-        - os: ubuntu-latest
+        - os: ubuntu-20.04
           compiler: gcc
           compiler_version: 8
           DEVEL_BUILD: "OFF"
