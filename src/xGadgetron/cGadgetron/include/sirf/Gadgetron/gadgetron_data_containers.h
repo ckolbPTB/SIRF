@@ -61,7 +61,7 @@ Some acquisitions do not participate directly in the reconstruction process
 */
 #define TO_BE_IGNORED(acq) \
 	((acq).isFlagSet(ISMRMRD::ISMRMRD_ACQ_IS_NOISE_MEASUREMENT) || \
-	!(acq).isFlagSet(ISMRMRD::ISMRMRD_ACQ_IS_DUMMYSCAN_DATA))
+	(acq).isFlagSet(ISMRMRD::ISMRMRD_ACQ_IS_DUMMYSCAN_DATA))
 
 /*!
 \ingroup MR
