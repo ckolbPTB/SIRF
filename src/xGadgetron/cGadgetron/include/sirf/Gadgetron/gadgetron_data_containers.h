@@ -60,11 +60,8 @@ Some acquisitions do not participate directly in the reconstruction process
 (e.g. noise calibration acquisitions).
 */
 #define TO_BE_IGNORED(acq) \
-	(!(acq).isFlagSet(ISMRMRD::ISMRMRD_ACQ_IS_PARALLEL_CALIBRATION) && \
-	!(acq).isFlagSet(ISMRMRD::ISMRMRD_ACQ_IS_PARALLEL_CALIBRATION_AND_IMAGING) && \
-	!(acq).isFlagSet(ISMRMRD::ISMRMRD_ACQ_LAST_IN_MEASUREMENT) && \
-	!(acq).isFlagSet(ISMRMRD::ISMRMRD_ACQ_IS_REVERSE) && \
-	(acq).flags() >= (1 << (ISMRMRD::ISMRMRD_ACQ_IS_NOISE_MEASUREMENT - 1)))
+	((acq).isFlagSet(ISMRMRD::ISMRMRD_ACQ_IS_NOISE_MEASUREMENT) || \
+	!(acq).isFlagSet(ISMRMRD::ISMRMRD_ACQ_IS_DUMMYSCAN_DATA))
 
 /*!
 \ingroup MR
