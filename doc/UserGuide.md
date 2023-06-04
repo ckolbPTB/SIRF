@@ -837,7 +837,7 @@ Provides methods for for applying `S` factor in (F) and (B) or its inverse.
 
 Class for objective functions maximized by iterative Ordered Subsets reconstruction algorithms. At present we use Poisson logarithmic likelihood function with linear model for mean and a specific arrangement of the acquisition data. To make our interface more user-friendly, we provide a convenience function `make_PoissonLogLikelihood` that creates objects of this class (instead of the usual constructor) based on the acquisition data to be used. 
 
-The user have an option of adding a penalty term (referred to as prior) to the objective function. At present, we have just one particular kind of prior implemented, the quadratic prior described in the next section. 
+The user have an option of adding a penalty term (referred to as prior) to the objective function. At present, we have a limited number of priors implemented, see the next section.
 
 ###### Methods: 
 
@@ -860,6 +860,8 @@ The user have an option of adding a penalty term (referred to as prior) to the o
 ##### Prior (PET)
 
 An abstract base class for a penalty term to be added to the objective function. 
+The value $f$ (and sometimes the gradient $g_r$ for the $r^{th}$
+voxel) for each prior is presented below.
 
 ###### Methods: 
 
@@ -871,18 +873,57 @@ An abstract base class for a penalty term to be added to the objective function.
 
 Class for the prior that is a quadratic functions of the image values.
 
-Implements a quadratic Gibbs prior. The gradient of the prior is computed
-as follows:
+Implements a quadratic Gibbs prior:
+    $$f = \frac{1}{4} \sum_{r,dr} w_{dr} (\lambda_r - \lambda_{r+dr})^2 * \kappa_r * \kappa_{r+dr}$$
 
-    g_r = \sum_dr w_{dr} (\lambda_r - \lambda_{r+dr}) * \kappa_r * \kappa_{r+dr}
 
-where \lambda is the image and r and dr are indices and the sum is over 
-the neighbourhood where the weights w_{dr} are non-zero.
+The gradient of the prior is computed as follows:
+    $$g_r = \sum_{dr} \frac{w_{dr}}{2} (\lambda_r - \lambda_{r+dr}) * \kappa_r * \kappa_{r+dr}$$
 
-The \kappa image can be used to have spatially-varying penalties such
+where $\lambda$ is the image and r and dr are indices and the sum is over
+the neighbourhood where the weights $w_{dr}$ are non-zero.
+
+The $\kappa$ image can be used to have spatially-varying penalties such
 as in Jeff Fessler's papers. It should have identical dimensions to the
-image for which the penalty is computed. If \kappa is not set, this
-class will effectively use 1 for all \kappa's.
+image for which the penalty is computed. If $\kappa$ is not set, this
+class will effectively use 1 for all $\kappa$'s.
+
+By default, a 3x3 or 3x3x3 neigbourhood is used where the weights are set
+to x-voxel_size divided by the Euclidean distance between the points.
+
+##### LogcoshPrior (PET)
+
+This implements a Logcosh prior that is given by:
+$$f = \sum_{r,dr} w_{dr} \frac{1}{2 s^2}  log(cosh(s(\lambda_r - \lambda_{r+dr}))) * \kappa_r * \kappa_{r+dr}$$
+
+The gradient of Logcosh prior is computed as follows:
+$$g_r = \sum_{dr} w_{dr} \frac{1}{s} \tanh (s (\lambda_r-\lambda_{r + dr}))* \kappa_r * \kappa_{r+dr}$$
+
+where $\lambda$ is the image where the prior is computed and $r$ and $dr$ are
+indices and the sum is over the neighbourhood where the weights $w_{dr}$ are 
+non-zero. $s$ (a.k.a. scalar) controls the transition between the quadratic 
+(smooth) and linear (edge-preserving) nature of the prior
+
+The $\kappa$ image is the spatially-varying penalties as before.
+
+By default, a 3x3 or 3x3x3 neigbourhood is used where the weights are set
+to x-voxel_size divided by the Euclidean distance between the points.
+
+##### RelativeDifferencePrior (PET)
+
+This implements a Relative Difference Prior (RDP), proposed by J. Nuyts, et.al., 
+2002. RDP is given by:
+$$f= \sum_{r,dr} \frac{w_{dr}}{2} \frac{(\lambda_r - \lambda_{r+dr})^2}{(\lambda_r+ \lambda_{r+dr} + \gamma |\lambda_r - \lambda_{r+dr}| + \epsilon)} * \kappa_r * \kappa_{r+dr}$$
+
+The gradient of the prior is computed as follows:
+$$g_r = \sum_{dr} w_{dr} \frac{(\lambda_r - \lambda_{r+dr}) (\gamma |\lambda_r - \lambda_{r+dr}|+ \lambda_r + 3\lambda_{r+dr} + 2 \epsilon)}{(\lambda_r+ \lambda_{r+dr} + \gamma |\lambda_r - \lambda_{r+dr}| + \epsilon)^2} * \kappa_r * \kappa_{r+dr}$$
+
+where $\lambda$ is the image where the prior is computed and $r$ and $dr$ are 
+indices and the sum is over the neighbourhood where the weights $w_{dr}$ are 
+non-zero. $\gamma$ is a edge preservation hyper-parameter and $\epsilon$ is small 
+modification the penalty function used to prevent divide by zero’s.
+
+The $\kappa$ image is the spatially-varying penalties as before.
 
 By default, a 3x3 or 3x3x3 neigbourhood is used where the weights are set
 to x-voxel_size divided by the Euclidean distance between the points.
@@ -898,18 +939,16 @@ vol. 35, no. 9, Sep 2016 (https://doi.org/10.1109/TMI.2016.2549601).
 Note that PLS becomes smoothed TV when a uniform anatomical image is
 provided.
 
-The prior has 2 parameters alpha and eta. It is computed for an image
-f as
-
-    \phi(f) = \sqrt{\alpha^2 + |\nabla f|^2 - {(\nabla f,\xi)}^2}
-
-where \xi is the normalised gradient of the anatomical image v calculated
+The prior has 2 parameters $\alpha$ (alpha) and $\eta$ (eta). It is computed for an image
+$f$ as
+  $$\phi(f) = \sqrt{\alpha^2 + |\nabla f|^2 - {(\nabla f,\xi)}^2}$$
+where
+$\nabla$ is the finite difference operator (not taking voxel-sizes into account) and
+$\xi$ is the normalised gradient of the anatomical image $v$ calculated
 as follows:
-
-    \xi = (\nabla v) / )\sqrt{|\nabla v|^2 + \eta^2)
-
-The parameter alpha controls the edge-preservation property 
-of PLS, and depends on the scale of the emission image, and eta avoids 
+  $$\xi = (\nabla v) / )\sqrt{|\nabla v|^2 + \eta^2}$$
+The parameter $\alpha$ controls the edge-preservation property
+of PLS, and depends on the scale of the emission image, and $\eta$ avoids
 division by zero, and depends on the scale of the anatomical image.
 
 An image kappa can be used to have spatially-varying penalties
