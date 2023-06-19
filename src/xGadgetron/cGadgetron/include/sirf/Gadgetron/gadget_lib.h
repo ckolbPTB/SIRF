@@ -371,6 +371,30 @@ namespace sirf {
 		}
 	};
 
+		/**
+	\brief Class for the generator of xml definition of GenericReconEigenChannelGadget.
+	*/
+	class GenericReconEigenChannelGadget : public Gadget {
+	public:
+		GenericReconEigenChannelGadget() :
+			Gadget("EigenChannel", "gadgetron_mricore",
+			"GenericReconEigenChannelGadget")
+		{
+			add_property("debug_folder", "");
+        	add_property("perform_timing", "true");
+        	add_property("verbose", "true");
+        	add_property("average_all_ref_N", "true");
+        	add_property("average_all_ref_S", "true");
+        	add_property("upstream_coil_compression", "true");
+        	add_property("upstream_coil_compression_thres", "0.002");
+        	add_property("upstream_coil_compression_num_modesKept", "0");
+		}
+		static const char* class_name()
+		{
+			return "GenericReconEigenChannelGadget";
+		}
+	};
+
 	/**
 	\brief Class for the generator of xml definition of SimpleReconGadget.
 	*/

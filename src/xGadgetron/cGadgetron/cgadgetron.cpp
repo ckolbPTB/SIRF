@@ -144,6 +144,7 @@ void* cGT_newObject(const char* name)
 		NEW_GADGET(AcquisitionAccumulateTriggerGadget);
 		NEW_GADGET(BucketToBufferGadget);
 		NEW_GADGET(GenericReconCartesianReferencePrepGadget);
+		NEW_GADGET(GenericReconEigenChannelGadget);
 		NEW_GADGET(GenericReconCartesianGrappaGadget);
 		NEW_GADGET(SimpleReconGadget);
         NEW_GADGET(GenericReconCartesianFFTGadget);
