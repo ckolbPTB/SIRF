@@ -194,6 +194,28 @@ private:
     const std::vector< std::uint16_t > rad_shift_ = {0, 2, 1, 3}; //this is bit-reversed {0 1 2 3}
 };
 
+/*!
+\ingroup Gadgetron Extensions
+\brief Class to set the a 3D non-Cartesian trajectory
+*
+*/
+
+class NonCartesian3DTrajPrep : public TrajectoryPreparation3D {
+
+public:
+    NonCartesian3DTrajPrep(){
+        traj_type_ = ISMRMRD::TrajectoryType::OTHER;
+    }
+
+protected:
+    TrajPointSet calculate_trajectory(ISMRMRD::Acquisition& acq) const;
+    virtual void append_to_trajectory(TrajPointSet& tps, ISMRMRD::Acquisition& acq) const;
+
+private:    
+    std::uint16_t circ_mod(std::uint16_t const a, std::uint16_t const b) const { return (((a%b) + b ) % b);}
+    const std::vector< std::uint16_t > rad_shift_ = {0, 2, 1, 3}; //this is bit-reversed {0 1 2 3}
+};
+
 
 /*!
 \ingroup Gadgetron Extensions

@@ -915,6 +915,7 @@ class AcquisitionData(DataContainer):
         self.handle = None
         self.sorted = False
         self.info = None
+        print('THIS IS NOW ALL MODIFIED')
         if file is not None:
             mask = numpy.ndarray((1,), dtype=numpy.int64)
             mask[0] = ignored.mask

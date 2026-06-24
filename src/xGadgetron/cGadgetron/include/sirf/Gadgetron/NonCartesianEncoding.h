@@ -139,7 +139,7 @@ protected:
 };
 
 typedef Gridder<2> Gridder2D;
-
+typedef Gridder<3> Gridder3D;
 
 /*!
 \ingroup Gadgetron Extensions
@@ -163,6 +163,18 @@ protected:
     Gridder2D::TrajectoryArrayType get_trajectory(const MRAcquisitionData& ac) const;
 
 };
+
+class NonCartesian3DEncoding : public FourierEncoding
+{
+public:
+    NonCartesian3DEncoding(): FourierEncoding() {}
+
+    virtual void forward(MRAcquisitionData& ac, const CFImage& img) const;
+    virtual void backward(CFImage& img, const MRAcquisitionData& ac) const;
+protected:
+    Gridder3D::TrajectoryArrayType get_trajectory(const MRAcquisitionData& ac) const;
+
+};  
 
 class NonCartesian2DEncoding : public FourierEncoding
 {

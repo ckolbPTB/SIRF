@@ -66,6 +66,7 @@ namespace sirf {
     class CartesianFourierEncoding;
 #if GADGETRON_TOOLBOXES_AVAILABLE
     class RPEFourierEncoding;
+	class NonCartesian3DEncoding;
 #endif
 
 	template< class T >

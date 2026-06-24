@@ -67,6 +67,163 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 using namespace sirf;
 using namespace ISMRMRD;
 
+Gridder3D::TrajectoryArrayType NonCartesian3DEncoding::get_trajectory(const MRAcquisitionData& ac) const
+{
+    sirf::NonCartesian3DTrajPrep tp;
+    TrajectoryPreparation3D::TrajPointSet sirftraj = tp.get_trajectory(ac);
+
+    Gridder3D::TrajectoryArrayType traj(sirftraj.size());
+    traj.fill(Gadgetron::floatd3(0.f, 0.f, 0.f));
+
+    for(int ik=0; ik<traj.get_number_of_elements(); ++ik)
+    {
+        traj.at(ik)[0] = sirftraj[ik][0];
+        traj.at(ik)[1] = sirftraj[ik][1];
+        traj.at(ik)[2] = sirftraj[ik][2];
+    }
+
+    return traj;
+}
+
+void NonCartesian3DEncoding::backward(CFImage& img, const MRAcquisitionData& ac) const
+{
+    std::cout << "NonCartesian3DEncoding!" << std::endl;
+    ASSERT( ac.get_trajectory_type() == ISMRMRD::TrajectoryType::OTHER, "Give a MRAcquisitionData reference with the trajectory type OTHER.");
+
+    ISMRMRD::IsmrmrdHeader hdr = ac.acquisitions_info().get_IsmrmrdHeader();
+    ISMRMRD::Encoding e = hdr.encoding[0];
+
+    std::vector<size_t> kspace_dims;
+    ac.get_kspace_dimensions(kspace_dims);
+
+// Or with range-based for loop (cleaner)
+std::cout << "kspace_dims: ";
+for (const auto& dim : kspace_dims) {
+std::cout << dim << " ";
+}
+std::cout << std::endl;
+
+    EncodingSpace rec_space = e.reconSpace;
+    std::vector < size_t > img_volume_dims{rec_space.matrixSize.x, rec_space.matrixSize.y, rec_space.matrixSize.z};
+
+    Gridder3D::TrajectoryArrayType traj = this->get_trajectory(ac);
+
+    Gridder3D nufft(img_volume_dims, traj);
+
+    img.resize(rec_space.matrixSize.x, rec_space.matrixSize.y, rec_space.matrixSize.z, kspace_dims[3]);
+
+    std::vector<size_t> const kdata_dims{kspace_dims[0]*ac.number(), kspace_dims[3]};
+    for(size_t ichannel=0; ichannel<kspace_dims[3]; ++ichannel)
+    {
+        CFGThoNDArr k_data_sausage(kdata_dims[0]);
+        k_data_sausage.fill(complex_float_t(0,0));
+
+        size_t ik = 0;
+        for(int ia=0; ia<ac.number(); ++ia)
+        {
+            ISMRMRD::Acquisition acq;
+            ac.get_acquisition(ia, acq);
+
+            for(int is=0; is<acq.number_of_samples(); ++is)
+            {
+                k_data_sausage.at(ik) = acq.data(is,ichannel);
+                ik++;
+            }
+        }
+        CFGThoNDArr imgdata_volume;
+        nufft.ifft(imgdata_volume, k_data_sausage);
+
+        std::cout << "coil " << ichannel << std::endl;
+
+std::vector<size_t> dims = *imgdata_volume.get_dimensions();
+std::cout << "imgdata_volume dims (size=" << dims.size() << "): [";
+for (size_t i = 0; i < dims.size(); i++) {
+    std::cout << dims[i];
+    if (i < dims.size() - 1) std::cout << ", ";
+}
+std::cout << "]" << std::endl;
+
+        for(size_t iz=0; iz<rec_space.matrixSize.z; ++iz)
+        for(size_t iy=0; iy<rec_space.matrixSize.y; ++iy)
+        for(size_t ix=0; ix<rec_space.matrixSize.x; ++ix)
+            img.operator()(ix, iy, iz, ichannel) = imgdata_volume(ix, iy, iz);
+
+        std::cout << "img " << ichannel << std::endl;
+    }
+
+    img.setFieldOfView( rec_space.fieldOfView_mm.x, rec_space.fieldOfView_mm.y ,rec_space.fieldOfView_mm.z );
+
+    ISMRMRD::Acquisition acq;
+    ac.get_acquisition(0,acq);
+
+    this->match_img_header_to_acquisition(img, acq);
+}
+
+void NonCartesian3DEncoding::forward(MRAcquisitionData& ac, const CFImage& img) const
+{
+
+    throw std::runtime_error("3D Non-Cartesian forward not implemented yet.");
+
+    ASSERT( ac.number() >0, "Give a non-empty rawdata container if you want to use the rpe forward.");
+    ASSERT( ac.get_trajectory_type() == ISMRMRD::TrajectoryType::OTHER, "Give a MRAcquisitionData reference with the trajectory type OTHER.");
+
+    std::vector<size_t> img_dims;
+    img_dims.push_back(img.getMatrixSizeX());
+    img_dims.push_back(img.getMatrixSizeY());
+    img_dims.push_back(img.getMatrixSizeZ());
+    img_dims.push_back(img.getNumberOfChannels());
+
+    CFGThoNDArr img_data(img_dims);
+    std::memcpy(img_data.begin(), img.getDataPtr(), img.getDataSize());
+
+    Gridder3D::TrajectoryArrayType traj = this->get_trajectory(ac);
+    size_t const num_kdata_pts = traj.get_number_of_elements();
+
+    std::vector < size_t > img_slice_dims{img_dims[0], img_dims[1], img_dims[2]};
+    Gridder3D nufft(img_slice_dims, traj);
+
+    std::vector< size_t> output_dims{img_dims[0], num_kdata_pts, img_dims[3]};
+    CFGThoNDArr kdata(output_dims);
+
+    for(size_t ichannel=0; ichannel<img_dims[3]; ++ichannel)
+    for(size_t islice=0;islice<img_dims[0]; ++islice)
+    {
+
+        CFGThoNDArr img_slice(img_slice_dims);
+
+        for(int ny=0; ny<img_dims[1]; ++ny)
+        for(int nz=0; nz<img_dims[2]; ++nz)
+             img_slice(ny,nz)= img_data(islice,ny,nz,ichannel);
+
+        CFGThoNDArr k_slice_data_sausage;
+        nufft.fft(k_slice_data_sausage, img_slice);
+
+        for( int ik=0; ik<num_kdata_pts; ++ik)
+            kdata(islice, ik, ichannel) = k_slice_data_sausage.at(ik);
+    }
+
+    Gadgetron::hoNDFFT< float >::instance()->fft1c(kdata);
+
+    ISMRMRD::Acquisition acq;
+    ac.get_acquisition(0, acq);
+
+    ASSERT( acq.number_of_samples() == img_dims[0],"NUMBER OF SAMPLES OF RAWDATA DONT MATCH IMAGES SLICES");
+    ASSERT( acq.active_channels() == img_dims[3],"NUMBER OF CHANNELS OF RAWDATA DONT MATCH IMAGES CHANNELS");
+
+    float const fft_normalisation_factor = sqrt((float)acq.number_of_samples());
+
+    for(int ia=0; ia<num_kdata_pts; ++ia)
+    {
+        ac.get_acquisition(ia, acq);
+
+        for(int is=0; is<acq.number_of_samples(); ++is)
+            for(int ic=0; ic<acq.active_channels(); ++ic)
+                acq.data(is,ic) = fft_normalisation_factor * kdata(is, ia, ic);
+
+        ac.set_acquisition(ia, acq);
+    }
+}
+
 Gridder2D::TrajectoryArrayType RPEFourierEncoding::get_trajectory(const MRAcquisitionData& ac) const
 {
     sirf::GRPETrajectoryPrep tp;
@@ -83,6 +240,7 @@ Gridder2D::TrajectoryArrayType RPEFourierEncoding::get_trajectory(const MRAcquis
 
     return traj;
 }
+
 
 void RPEFourierEncoding::backward(CFImage& img, const MRAcquisitionData& ac) const
 {
