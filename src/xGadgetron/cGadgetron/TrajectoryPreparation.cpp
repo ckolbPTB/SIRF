@@ -66,19 +66,9 @@ void sirf::NonCartesian3DTrajPrep::append_to_trajectory(TrajPointSet& tps, ISMRM
     if( acq.trajectory_dimensions() != 3)
         throw std::runtime_error("Please give Acquisition with a 3D trajectory if you want to use it here.");
 
-    std::cout << "NonCartesian3DTrajPrep - recalculating GRPE trajectory" << std::endl;
-    float nsamples_f = static_cast<float>(acq.number_of_samples());
-
     for(int ns=0; ns<acq.number_of_samples(); ++ns)
     {
-        //TrajectoryPreparation3D::TrajPointType curr_point{acq.traj(0, ns), acq.traj(1, ns), acq.traj(2, ns)}; 
-
-        // Remove below and uncomment above for real 3D Non-Cartesian trajectory
-        float ns_f       = static_cast<float>(ns);
-        float kx         = (ns_f - nsamples_f / 2.0f) / (2.0f * nsamples_f);
-        TrajectoryPreparation3D::TrajPointType curr_point{kx, acq.traj(1, ns), acq.traj(2, ns)}; 
-
-
+        TrajectoryPreparation3D::TrajPointType curr_point{acq.traj(0, ns), acq.traj(1, ns), acq.traj(2, ns)}; 
         tps.push_back(curr_point);
     }
 }

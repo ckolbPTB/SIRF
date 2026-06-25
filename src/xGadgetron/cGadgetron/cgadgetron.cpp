@@ -1030,7 +1030,7 @@ cGT_setGoldenAngle2DTrajectory(void* ptr_acqs)
 
 extern "C"
 void*
-cGT_getDataTrajectory(void* ptr_acqs, size_t ptr_traj)
+cGT_getDataTrajectory(void* ptr_acqs, size_t ptr_traj, int const traj_dim)
 {
     try {
         CAST_PTR(DataHandle, h_acqs, ptr_acqs);
@@ -1052,9 +1052,19 @@ cGT_getDataTrajectory(void* ptr_acqs, size_t ptr_traj)
 		}
 		else if(acqs.get_trajectory_type() == ISMRMRD::TrajectoryType::RADIAL)
 		{
-			sirf::Radial2DTrajprep tp;
-			auto traj = tp.get_trajectory(acqs);
-			memcpy(fltptr_traj,&(*traj.begin()), traj.size()*sizeof(Radial2DTrajprep::TrajPointType));
+			if (traj_dim == 3)
+			{
+				sirf::NonCartesian3DTrajPrep tp;
+				auto traj = tp.get_trajectory(acqs);
+				memcpy(fltptr_traj,&(*traj.begin()), traj.size()*sizeof(NonCartesian3DTrajPrep::TrajPointType));
+			}
+			else
+			{
+				sirf::Radial2DTrajprep tp;
+				auto traj = tp.get_trajectory(acqs);
+				memcpy(fltptr_traj,&(*traj.begin()), traj.size()*sizeof(Radial2DTrajprep::TrajPointType));
+			}
+			
 		}
 		else if(acqs.get_trajectory_type() == ISMRMRD::TrajectoryType::GOLDENANGLE)
 		{

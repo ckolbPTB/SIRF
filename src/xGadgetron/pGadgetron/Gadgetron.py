@@ -631,8 +631,13 @@ class CoilImagesData(ImageData):
     def same_object(self):
         return CoilImagesData()
 
-    def calculate(self, acq):
-        dcw = compute_kspace_density(acq)
+    def calculate(self, acq, dcw=None):
+        if dcw is not None:
+            assert_validity(dcw, AcquisitionData)
+            if acq.shape != dcw.shape:
+                raise AssertionError("The shape of the density weights and the acquisition data must be the same.")
+        else:
+            dcw = compute_kspace_density(acq)
         acq = acq * dcw
         self.handle.cGT_computeCoilImages(acq)
 
@@ -915,7 +920,6 @@ class AcquisitionData(DataContainer):
         self.handle = None
         self.sorted = False
         self.info = None
-        print('THIS IS NOW ALL MODIFIED')
         if file is not None:
             mask = numpy.ndarray((1,), dtype=numpy.int64)
             mask[0] = ignored.mask
@@ -1812,13 +1816,13 @@ def set_data_trajectory(ad, traj, traj_type_str):
         raise error('Trajectory should be numpy array. Got {}'.format(type(traj)))
 
 
-def get_data_trajectory(ad):
+def get_data_trajectory(ad, dim=None):
     '''
     Function that gets the trajectory of AcquisitionData depending on the rawdata trajectory.
     ad: AcquisitionData
     '''
     assert_validity(ad, AcquisitionData)
-
+    
     if ad.check_traj_type('cartesian'):
         num_traj_pts = ad.number()
         traj_dim = 2
@@ -1826,18 +1830,23 @@ def get_data_trajectory(ad):
         num_traj_pts = ad.number()
         traj_dim = 3
     elif ad.check_traj_type('radial') or ad.check_traj_type('goldenangle') or ad.check_traj_type('spiral'):
-        num_traj_pts = ad.number() * ad.dimensions()[2]
-        traj_dim = 2
+        if dim == 3:
+            num_traj_pts = ad.number() * ad.dimensions()[2]
+            traj_dim = 3
+        else:
+            
+            num_traj_pts = ad.number() * ad.dimensions()[2]
+            traj_dim = 2
 
     dims = (num_traj_pts, traj_dim)
     traj = numpy.ndarray(dims, dtype=numpy.float32)
 
-    ad.handle.cGT_getDataTrajectory(traj)
+    ad.handle.cGT_getDataTrajectory(traj, traj_dim)
 
     return traj
 
 
-def compute_kspace_density(ad):
+def compute_kspace_density(ad, dim=None):
     '''
     Function that computes the kspace density depending the
     ad: AcquisitionData
@@ -1849,7 +1858,7 @@ def compute_kspace_density(ad):
     elif ad.check_traj_type('other'):
         return calc_rpe_dcw(ad)
     elif ad.check_traj_type('radial') or ad.check_traj_type('goldenangle'):
-        return calc_radial_dcw(ad)
+        return calc_radial_dcw(ad, dim)
     elif ad.check_traj_type('spiral'):
         raise NotImplementedError(
             "Spiral density can not be computed yet. Potentially compute it externally and pass it as an argument where it is required."
@@ -1878,7 +1887,6 @@ def calc_cartesian_dcw(ad):
     dcw.fill(density_weight)
 
     return dcw
-
 
 def calc_rpe_dcw(ad):
     '''
@@ -1913,15 +1921,16 @@ def calc_rpe_dcw(ad):
     return dcw
 
 
-def calc_radial_dcw(ad):
+def calc_radial_dcw(ad, dim=2):
     '''
     Function that computes the kspace weight depending on the distance to the center
     as in a filtered back-projection. Stricly valid only for equally angular-spaced
     radially distributed points
     ad: AcquisitionData
+    dim: dimension of k-space (2 or 3 for 2D or 3D trajectories)
     '''
-
-    traj = numpy.transpose(get_data_trajectory(ad))
+    
+    traj = numpy.transpose(get_data_trajectory(ad, dim))
     (na, nc, ns) = ad.dimensions()
 
     ramp_filter = numpy.linalg.norm(traj, axis=0)
@@ -1945,16 +1954,4 @@ def calc_radial_dcw(ad):
     dcw.fill(density_weight)
 
     return dcw
-    density_weight = density_weight / density_weight_norm
 
-    density_weight = numpy.transpose(density_weight)
-    #    density_weight = numpy.expand_dims(density_weight, axis=(1,2))
-    density_weight = numpy.expand_dims(density_weight, axis=1)
-    density_weight = numpy.expand_dims(density_weight, axis=2)
-    density_weight = numpy.reshape(density_weight, (na, 1, ns))
-    density_weight = numpy.tile(density_weight, (1, nc, 1))
-
-    dcw = ad.copy()
-    dcw.fill(density_weight)
-
-    return dcw
